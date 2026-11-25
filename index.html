@@ -95,6 +95,7 @@
     }
     .thumb i { width: 4px; flex: none; }
     .thumb b { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 6px; font-size: 12px; font-weight: 650; text-align: center; }
+    .library-thumb { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; background: #111; }
     .card { padding: 0; }
     .card h3, .panel h3 { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; justify-content: space-between; }
     .card .body, .panel .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
@@ -262,8 +263,7 @@
         const zone = ZONES.find((item) => item.id === target.zoneId);
         return zone ? zone.name + "（" + zone.count + " 台）" : target.zoneId;
       }
-      const onlineIds = SCREENS.filter((screen) => screen.online);
-      if (target.ids.length === onlineIds.length && target.ids.every((id) => SCREEN_BY_ID.get(id).online)) return "全部在線（" + target.ids.length + " 台）";
+      if (target.ids.length === SCREENS.length) return "全部屏幕（" + target.ids.length + " 台）";
       if (target.ids.length <= 3) return target.ids.join("、");
       return target.ids.length + " 台屏幕";
     }
@@ -312,6 +312,11 @@
       if (existing.repeat === "weekly" && repeat === "weekly") return existing.weekdays.some((day) => weekdays.includes(day));
       return false;
     }
+    function libraryThumb(image) {
+      const item = image || { name: "未知圖片", color: "#6b7280" };
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="' + item.color + '"/><rect x="430" y="70" width="150" height="150" rx="24" fill="none" stroke="#ffffff" stroke-width="8"/><text x="28" y="300" fill="#ffffff" font-size="42" font-family="Microsoft JhengHei, PingFang HK, sans-serif">' + esc(item.name) + "</text></svg>";
+      return '<img class="library-thumb" alt="' + esc(item.name) + '" src="data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg) + '">';
+    }
     function thumb(image, height) {
       const item = image || { name: "未知圖片", color: "#6b7280" };
       return '<div class="thumb" style="height:' + height + 'px"><i style="background:' + item.color + '"></i><b>' + esc(item.name) + "</b></div>";
@@ -326,8 +331,6 @@
       const q = state.query.trim().toLowerCase();
       return SCREENS.filter((screen) => {
         if (state.zone !== "all" && screen.zoneId !== state.zone) return false;
-        if (state.status === "online" && !screen.online) return false;
-        if (state.status === "offline" && screen.online) return false;
         const imageId = assigned(screen);
         if (state.imageFilter !== "all" && imageId !== state.imageFilter) return false;
         if (state.status === "today") {
@@ -346,14 +349,13 @@
         return { kind: "screens", ids: Array.from(state.selected).sort() };
       }
       if (state.schTarget === "zone") return { kind: "zone", zoneId: state.schZone };
-      return { kind: "screens", ids: SCREENS.filter((screen) => screen.online).map((screen) => screen.id) };
+      return { kind: "screens", ids: SCREENS.map((screen) => screen.id) };
     }
 
     function applyTo(ids, imageId) {
       const image = findImage(imageId);
       ids.forEach((id) => { state.overrides[id] = imageId; state.dirty.add(id); });
-      const offline = ids.filter((id) => !SCREEN_BY_ID.get(id).online).length;
-      state.notice = "已將 " + ids.length + " 台屏幕的指定圖片改為「" + (image ? image.name : imageId) + "」。" + (offline ? " 其中 " + offline + " 台離線，重新上線後先會同步。" : "");
+      state.notice = "已將 " + ids.length + " 台屏幕的指定圖片改為「" + (image ? image.name : imageId) + "」。";
       state.batchOpen = false;
     }
 
@@ -361,7 +363,6 @@
       const active = document.activeElement;
       const field = active && active.dataset ? active.dataset.field : "";
       const caret = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
-      const onlineCount = SCREENS.filter((screen) => screen.online).length;
       const todayCount = SCREENS.filter((screen) => {
         const next = upcomingFor(screen.id)[0];
         return next && next.when.iso === TODAY;
@@ -380,14 +381,14 @@
         "</div></header>",
         '<p class="muted">' + intro[state.view] + "</p>",
         state.notice ? '<div class="callout ok"><p>' + esc(state.notice) + '</p><button class="btn ghost" data-action="clear-notice" type="button">關閉</button></div>' : "",
-        state.view === "screens" ? renderScreens(onlineCount, todayCount) : "",
+        state.view === "screens" ? renderScreens(todayCount) : "",
         state.view === "library" ? renderLibrary() : "",
-        state.view === "schedules" ? renderSchedules(onlineCount) : "",
+        state.view === "schedules" ? renderSchedules() : "",
         '<section class="note stack"><h2>線框說明</h2>',
         "<p class=\"small\">總覽以店群同每頁 24 台瀏覽 200 台。位置是三星專門店分店，以及豐澤、百老匯、衛訊、中原電器、電訊數碼、1010／csl 分店。</p>",
         "<p class=\"small\">剔選先至可以批量更換或批量排程。撳入一台先至單獨改圖。</p>",
-        "<p class=\"small\">在線屏幕的縮圖是目前顯示。離線屏幕顯示最新指定畫面，並標明裝置未確認。</p>",
-        "<p class=\"small\">排程目標可以是已剔選屏幕、整個店群，或建立當下全部在線屏幕。同一時間重疊時，以最後建立的排程為準。</p>",
+        "<p class=\"small\">圖片庫以 16:9 縮圖顯示每張可派發的圖片。</p>",
+        "<p class=\"small\">排程目標可以是已剔選屏幕、整個店群，或全部屏幕。同一時間重疊時，以最後建立的排程為準。</p>",
         "<p class=\"small faint\">示範數據，不會控制真實屏幕。</p></section>"
       ].join("");
       if (field) {
@@ -403,31 +404,25 @@
       return '<button type="button" class="' + (state.view === view ? "active" : "") + '" data-action="view" data-id="' + view + '">' + label + "</button>";
     }
 
-    function renderScreens(onlineCount, todayCount) {
+    function renderScreens(todayCount) {
       const list = filteredScreens();
       const pageSize = state.layout === "grid" ? 24 : 12;
       const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
       const page = Math.min(state.page, pageCount - 1);
       const slice = list.slice(page * pageSize, page * pageSize + pageSize);
-      const counts = images().map((image) => ({ image, value: SCREENS.filter((screen) => assigned(screen) === image.id).length })).filter((item) => item.value > 0);
       const focused = state.focusId ? SCREEN_BY_ID.get(state.focusId) : null;
       const showDetail = focused && !state.batchOpen;
       const pageIds = slice.map((screen) => screen.id);
       const allPage = pageIds.length > 0 && pageIds.every((id) => state.selected.has(id));
       const allFiltered = list.length > 0 && list.every((screen) => state.selected.has(screen.id));
       const selected = Array.from(state.selected);
-      const bar = counts.map((item) => '<span style="width:' + (item.value / 2) + "%;background:" + item.image.color + '"></span>').join("");
-      const legend = counts.map((item) => '<span class="row"><i class="swatch" style="background:' + item.image.color + '"></i><span class="small muted">' + esc(item.image.name) + " " + item.value + "</span></span>").join("");
       return [
         '<section class="stack">',
         '<div class="stats"><div class="stat"><b>200</b><span class="small muted">屏幕總數</span></div>',
-        '<div class="stat ok"><b>' + onlineCount + '</b><span class="small muted">在線</span></div>',
-        '<div class="stat warn"><b>' + (200 - onlineCount) + '</b><span class="small muted">離線</span></div>',
         '<div class="stat"><b>' + todayCount + '</b><span class="small muted">今日會換圖</span></div></div>',
-        '<div class="stack"><div class="row between"><span class="small">目前指定圖片分佈</span><span class="small muted">200 台</span></div><div class="bar">' + bar + "</div><div class=\"row\">" + legend + "</div></div>",
         '<div class="row">' + '<button type="button" class="pill' + (state.zone === "all" ? " active" : "") + '" data-action="zone" data-id="all">全部 200</button>' + ZONES.map((zone) => '<button type="button" class="pill' + (state.zone === zone.id ? " active" : "") + '" data-action="zone" data-id="' + zone.id + '">' + esc(zone.name) + " " + zone.count + "</button>").join("") + "</div>",
         '<div class="filters"><input data-field="query" type="search" placeholder="搜索 ID 或分店" value="' + esc(state.query) + '" style="width:200px">',
-        select("status", [["all", "全部狀態"], ["online", "在線"], ["offline", "離線"], ["today", "今日會換圖"]], state.status),
+        select("status", [["all", "全部屏幕"], ["today", "今日會換圖"]], state.status),
         select("imageFilter", [["all", "全部圖片"]].concat(images().map((image) => [image.id, image.name])), state.imageFilter),
         '<span class="grow"></span>',
         '<button type="button" class="pill' + (state.layout === "grid" ? " active" : "") + '" data-action="layout" data-id="grid">網格</button>',
@@ -463,7 +458,7 @@
       const image = findImage(assigned(screen));
       const next = upcomingFor(screen.id)[0];
       const nextText = next ? formatWhen(next.when.iso, next.when.time) + " " + ((findImage(next.schedule.imageId) || {}).name || "") : "沒有即將更新";
-      return '<div class="tile' + (state.selected.has(screen.id) ? " selected" : "") + (state.focusId === screen.id ? " focused" : "") + '" data-action="open" data-id="' + screen.id + '"><div class="row between"><label data-action="toggle" data-id="' + screen.id + '"><input type="checkbox"' + (state.selected.has(screen.id) ? " checked" : "") + "></label><b class=\"small grow\">" + screen.id + "</b>" + (screen.online ? '<span class="faint small">在線</span>' : '<span class="tag">離線</span>') + "</div>" + thumb(image, 58) + '<p class="small truncate">' + esc(screen.location) + '</p><p class="small faint truncate">' + esc(zoneName(screen.zoneId)) + (state.dirty.has(screen.id) ? " · 剛剛更新" : " · " + screen.updated) + '</p><p class="small muted truncate">' + esc(nextText) + "</p></div>";
+      return '<div class="tile' + (state.selected.has(screen.id) ? " selected" : "") + (state.focusId === screen.id ? " focused" : "") + '" data-action="open" data-id="' + screen.id + '"><div class="row between"><label data-action="toggle" data-id="' + screen.id + '"><input type="checkbox"' + (state.selected.has(screen.id) ? " checked" : "") + "></label><b class=\"small grow\">" + screen.id + "</b></div>" + thumb(image, 58) + '<p class="small truncate">' + esc(screen.location) + '</p><p class="small faint truncate">' + esc(zoneName(screen.zoneId)) + (state.dirty.has(screen.id) ? " · 剛剛更新" : " · " + screen.updated) + '</p><p class="small muted truncate">' + esc(nextText) + "</p></div>";
     }
 
     function table(slice) {
@@ -471,20 +466,19 @@
         const image = findImage(assigned(screen));
         const next = upcomingFor(screen.id)[0];
         const nextText = next ? formatWhen(next.when.iso, next.when.time) + " " + ((findImage(next.schedule.imageId) || {}).name || "") : "無";
-        return "<tr><td><label data-action=\"toggle\" data-id=\"" + screen.id + "\"><input type=\"checkbox\"" + (state.selected.has(screen.id) ? " checked" : "") + "></label></td><td><b>" + screen.id + "</b></td><td>" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</td><td>" + esc(image ? image.name : "未知圖片") + "</td><td>" + (screen.online ? "在線" : "離線 · 未確認") + "</td><td>" + esc(nextText) + "</td><td><button class=\"btn ghost\" type=\"button\" data-action=\"open\" data-id=\"" + screen.id + "\">開啟</button></td></tr>";
+        return "<tr><td><label data-action=\"toggle\" data-id=\"" + screen.id + "\"><input type=\"checkbox\"" + (state.selected.has(screen.id) ? " checked" : "") + "></label></td><td><b>" + screen.id + "</b></td><td>" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</td><td>" + esc(image ? image.name : "未知圖片") + "</td><td>" + esc(nextText) + "</td><td><button class=\"btn ghost\" type=\"button\" data-action=\"open\" data-id=\"" + screen.id + "\">開啟</button></td></tr>";
       }).join("");
-      return "<table><thead><tr><th>選</th><th>屏幕</th><th>位置</th><th>指定圖片</th><th>狀態</th><th>下次更新</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>";
+      return "<table><thead><tr><th>選</th><th>屏幕</th><th>位置</th><th>指定圖片</th><th>下次更新</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>";
     }
 
     function renderBatch(selected) {
-      const offline = selected.some((id) => !SCREEN_BY_ID.get(id).online);
-      return '<div class="card"><h3>批量更換圖片 <span class="tag">' + selected.length + " 台</span></h3><div class=\"body\"><p class=\"small muted\">" + esc(selected.slice(0, 8).join("、") + (selected.length > 8 ? "，以及其他 " + (selected.length - 8) + " 台" : "")) + "</p>" + picker(state.batchImage, "batchImage") + (offline ? '<div class="callout warn"><b>包含離線屏幕</b><p class="small">指定會先寫入後台。離線屏幕重新上線後，先顯示這張新圖。</p></div>' : "") + '<div class="row"><button class="btn primary" type="button" data-action="apply-batch">即時套用</button><button class="btn ghost" type="button" data-action="close-batch">取消</button></div></div></div>';
+      return '<div class="card"><h3>批量更換圖片 <span class="tag">' + selected.length + " 台</span></h3><div class=\"body\"><p class=\"small muted\">" + esc(selected.slice(0, 8).join("、") + (selected.length > 8 ? "，以及其他 " + (selected.length - 8) + " 台" : "")) + "</p>" + picker(state.batchImage, "batchImage") + '<div class="row"><button class="btn primary" type="button" data-action="apply-batch">即時套用</button><button class="btn ghost" type="button" data-action="close-batch">取消</button></div></div></div>';
     }
 
     function detail(screen) {
       const image = findImage(assigned(screen));
       const hits = upcomingFor(screen.id);
-      return '<aside class="card"><h3>' + screen.id + ' <span class="tag' + (screen.online ? " on" : "") + '">' + (screen.online ? "在線" : "離線") + "</span></h3><div class=\"body\"><p class=\"small muted\">" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</p>" + thumb(image, 96) + "<p class=\"small\">" + (screen.online ? "目前顯示" : "指定畫面（裝置離線，未確認實際畫面）") + "：" + esc(image.name) + "</p><p class=\"small faint\">" + (state.dirty.has(screen.id) ? "剛剛由後台更新" : "最後指令 " + screen.updated) + "</p>" + (screen.online ? "" : '<div class="callout warn"><b>屏幕離線</b><p class="small">仍可更改指定圖片或加入排程。屏幕重新上線後會同步最新指令。</p></div>') + "<h3>更換這台的圖片</h3>" + picker(state.detailImage, "detailImage") + (state.detailImage === assigned(screen) ? '<p class="small faint">此屏幕已經指定這張圖。</p>' : '<button class="btn primary" type="button" data-action="apply-one">即時套用到此屏幕</button>') + '<button class="btn secondary" type="button" data-action="schedule-one">只排程此屏幕</button><h3>即將執行</h3>' + (hits.length ? hits.map((hit) => '<p class="small">' + esc(formatWhen(hit.when.iso, hit.when.time) + " · " + hit.schedule.name + " · " + ((findImage(hit.schedule.imageId) || {}).name || "")) + "</p>").join("") : '<p class="small muted">這台未有即將執行的排程。</p>') + '<button class="btn ghost" type="button" data-action="close-detail">關閉</button></div></aside>';
+      return '<aside class="card"><h3>' + screen.id + "</h3><div class=\"body\"><p class=\"small muted\">" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</p>" + libraryThumb(image) + "<p class=\"small\">目前顯示：" + esc(image.name) + "</p><p class=\"small faint\">" + (state.dirty.has(screen.id) ? "剛剛由後台更新" : "最後指令 " + screen.updated) + "</p><h3>更換這台的圖片</h3>" + picker(state.detailImage, "detailImage") + (state.detailImage === assigned(screen) ? '<p class="small faint">此屏幕已經指定這張圖。</p>' : '<button class="btn primary" type="button" data-action="apply-one">即時套用到此屏幕</button>') + '<button class="btn secondary" type="button" data-action="schedule-one">只排程此屏幕</button><h3>即將執行</h3>' + (hits.length ? hits.map((hit) => '<p class="small">' + esc(formatWhen(hit.when.iso, hit.when.time) + " · " + hit.schedule.name + " · " + ((findImage(hit.schedule.imageId) || {}).name || "")) + "</p>").join("") : '<p class="small muted">這台未有即將執行的排程。</p>') + '<button class="btn ghost" type="button" data-action="close-detail">關閉</button></div></aside>';
     }
 
     function renderLibrary() {
@@ -492,13 +486,13 @@
       const users = SCREENS.filter((screen) => assigned(screen) === selected.id);
       const cards = images().map((image) => {
         const count = SCREENS.filter((screen) => assigned(screen) === image.id).length;
-        return '<div class="tile' + (image.id === selected.id ? " focused" : "") + '" data-action="library" data-id="' + image.id + '">' + thumb(image, 72) + '<p class="small"><b>' + esc(image.name) + '</b></p><p class="small faint">1920×1080 · ' + count + " 台</p></div>";
+        return '<div class="tile' + (image.id === selected.id ? " focused" : "") + '" data-action="library" data-id="' + image.id + '">' + libraryThumb(image) + '<p class="small"><b>' + esc(image.name) + '</b></p><p class="small faint">1920×1080 · ' + count + " 台</p></div>";
       }).join("");
-      const rows = users.slice(0, 8).map((screen) => "<tr><td>" + screen.id + "</td><td>" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</td><td>" + (screen.online ? "在線" : "離線") + "</td></tr>").join("");
-      return '<section class="stack"><div class="lib"><div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">' + cards + '</div><aside class="card"><h3>' + esc(selected.name) + ' <span class="tag">' + users.length + ' 台</span></h3><div class="body"><p class="small muted">1920×1080 · 16:9 · 靜態 JPG / PNG</p><p class="small">每台屏幕只會顯示圖片庫中的一張。套用新圖會覆蓋該台原來的指定。</p>' + (users.length ? '<h3>使用中的屏幕</h3><table><thead><tr><th>屏幕</th><th>位置</th><th>狀態</th></tr></thead><tbody>' + rows + "</tbody></table>" + (users.length > 8 ? '<p class="small faint">另有 ' + (users.length - 8) + ' 台未列出。</p>' : "") + '<button class="btn secondary" type="button" data-action="show-users" data-id="' + selected.id + '">在總覽查看這 ' + users.length + " 台</button>" : '<p class="small muted">未有屏幕使用此圖。可在屏幕總覽剔選後套用。</p>') + '</div></aside></div><div class="stack"><h2>加入圖片</h2><p class="small muted">上傳在正式系統完成。此線框用一個已選檔案示範入庫後可以立即被排程同批量套用。</p><div class="row"><input data-field="newImageName" type="text" value="' + esc(state.newImageName) + '" placeholder="圖片名稱"><span class="small faint">示意檔案 christmas-hero.jpg · 1920×1080 · 1.8 MB</span></div><button class="btn primary" type="button" data-action="add-image"' + (state.newImageName.trim() ? "" : " disabled") + ">加入圖片庫</button></div></section>";
+      const rows = users.slice(0, 8).map((screen) => "<tr><td>" + screen.id + "</td><td>" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</td></tr>").join("");
+      return '<section class="stack"><div class="lib"><div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">' + cards + '</div><aside class="card"><h3>' + esc(selected.name) + ' <span class="tag">' + users.length + ' 台</span></h3><div class="body">' + libraryThumb(selected) + '<p class="small muted">1920×1080 · 16:9 · 靜態 JPG / PNG</p><p class="small">每台屏幕只會顯示圖片庫中的一張。套用新圖會覆蓋該台原來的指定。</p>' + (users.length ? '<h3>使用中的屏幕</h3><table><thead><tr><th>屏幕</th><th>位置</th></tr></thead><tbody>' + rows + "</tbody></table>" + (users.length > 8 ? '<p class="small faint">另有 ' + (users.length - 8) + ' 台未列出。</p>' : "") + '<button class="btn secondary" type="button" data-action="show-users" data-id="' + selected.id + '">在總覽查看這 ' + users.length + " 台</button>" : '<p class="small muted">未有屏幕使用此圖。可在屏幕總覽剔選後套用。</p>') + '</div></aside></div><div class="stack"><h2>加入圖片</h2><p class="small muted">上傳在正式系統完成。此線框用一個已選檔案示範入庫後可以立即被排程同批量套用。</p><div class="row"><input data-field="newImageName" type="text" value="' + esc(state.newImageName) + '" placeholder="圖片名稱"><span class="small faint">示意檔案 christmas-hero.jpg · 1920×1080 · 1.8 MB</span></div><button class="btn primary" type="button" data-action="add-image"' + (state.newImageName.trim() ? "" : " disabled") + ">加入圖片庫</button></div></section>";
     }
 
-    function renderSchedules(onlineCount) {
+    function renderSchedules() {
       const rows = state.schedules.map((schedule) => {
         const next = nextOccurrence(schedule);
         const statusText = !schedule.enabled ? "已停用" : !next ? "已過期" : next.iso === TODAY ? "今日待執行" : "待執行";
@@ -508,7 +502,6 @@
       const active = state.schedules.find((schedule) => schedule.id === state.activeScheduleId) || state.schedules[0];
       const draft = draftTarget();
       const draftIds = draft ? targetIds(draft) : [];
-      const draftOffline = draftIds.filter((id) => !SCREEN_BY_ID.get(id).online).length;
       const timeOk = parseMinutes(state.schTime) !== null && validDate(state.schDate);
       const weekdays = Array.from(state.schWeekdays);
       const weekdayOk = state.schRepeat !== "weekly" || weekdays.length > 0;
@@ -523,7 +516,7 @@
         return count ? zone.name + " " + count : "";
       }).filter(Boolean) : [];
       const activeNext = active ? nextOccurrence(active) : null;
-      return '<section class="split"><div class="stack"><h2>排程清單</h2><p class="small muted">啟用中的排程會在時間到達時覆蓋目標屏幕的指定圖片。停用後不再執行。</p><table><thead><tr><th>時間</th><th>排程</th><th>目標</th><th>圖片</th><th>重複</th><th>狀態</th><th>啟用</th></tr></thead><tbody>' + rows + "</tbody></table>" + (active ? '<div class="stack"><h3>' + esc(active.name) + "</h3><p class=\"small\">" + esc((activeNext ? formatWhen(activeNext.iso, activeNext.time) : "已無後續執行") + " · " + repeatLabel(active) + " · 改為「" + ((findImage(active.imageId) || {}).name || "") + "」") + "</p><p class=\"small muted\">目標 " + esc(targetLabel(active.target)) + " · 店群分佈 " + esc(byZone.join("、")) + "</p></div>" : "") + '</div><div class="stack"><h2>新增排程</h2><label class="small muted">排程名稱</label><input data-field="schName" type="text" value="' + esc(state.schName) + '" placeholder="例如：尖沙咀專門店換畫"><div class="row"><label class="stack grow"><span class="small muted">日期</span><input data-field="schDate" type="text" value="' + esc(state.schDate) + '"></label><label class="stack grow"><span class="small muted">時間</span><input data-field="schTime" type="text" value="' + esc(state.schTime) + '"></label></div><label class="small muted">重複</label>' + select("schRepeat", [["once", "一次"], ["daily", "每日"], ["weekly", "每週"]], state.schRepeat) + (state.schRepeat === "weekly" ? '<div class="row">' + WEEKDAYS.map((label, index) => '<label class="small"><input type="checkbox" data-action="weekday" data-id="' + (index + 1) + '"' + (state.schWeekdays.has(index + 1) ? " checked" : "") + "> 週" + label + "</label>").join("") + "</div>" : "") + '<label class="small muted">目標</label>' + select("schTarget", [["selected", "已剔選屏幕（" + state.selected.size + "）"], ["zone", "整個店群"], ["online", "全部在線（" + onlineCount + "）"]], state.schTarget) + (state.schTarget === "zone" ? select("schZone", ZONES.map((zone) => [zone.id, zone.name + "（" + zone.count + " 台）"]), state.schZone) : "") + (state.schTarget === "selected" && state.selected.size === 0 ? '<button class="btn secondary" type="button" data-action="view" data-id="screens">前往屏幕總覽剔選</button>' : "") + '<label class="small muted">到時顯示的圖片</label>' + select("schImage", images().map((image) => [image.id, image.name]), state.schImage) + (draft ? '<p class="small">將覆蓋 ' + draftIds.length + " 台。" + (draftOffline ? " 其中 " + draftOffline + " 台目前離線，上線後同步。" : "") + "</p>" : "") + (conflicts.length ? '<div class="callout warn"><b>同一時間已有排程</b><p class="small">「' + esc(conflicts.map((schedule) => schedule.name).join("、")) + '」與這次目標重疊。建立後，執行時以這次排程為準。</p></div>' : "") + (block ? '<p class="small faint">' + esc(block) + "</p>" : "") + '<button class="btn primary" type="button" data-action="create-schedule"' + (block ? " disabled" : "") + ">建立排程</button></div></section>";
+      return '<section class="split"><div class="stack"><h2>排程清單</h2><p class="small muted">啟用中的排程會在時間到達時覆蓋目標屏幕的指定圖片。停用後不再執行。</p><table><thead><tr><th>時間</th><th>排程</th><th>目標</th><th>圖片</th><th>重複</th><th>狀態</th><th>啟用</th></tr></thead><tbody>' + rows + "</tbody></table>" + (active ? '<div class="stack"><h3>' + esc(active.name) + "</h3><p class=\"small\">" + esc((activeNext ? formatWhen(activeNext.iso, activeNext.time) : "已無後續執行") + " · " + repeatLabel(active) + " · 改為「" + ((findImage(active.imageId) || {}).name || "") + "」") + "</p><p class=\"small muted\">目標 " + esc(targetLabel(active.target)) + " · 店群分佈 " + esc(byZone.join("、")) + "</p></div>" : "") + '</div><div class="stack"><h2>新增排程</h2><label class="small muted">排程名稱</label><input data-field="schName" type="text" value="' + esc(state.schName) + '" placeholder="例如：尖沙咀專門店換畫"><div class="row"><label class="stack grow"><span class="small muted">日期</span><input data-field="schDate" type="text" value="' + esc(state.schDate) + '"></label><label class="stack grow"><span class="small muted">時間</span><input data-field="schTime" type="text" value="' + esc(state.schTime) + '"></label></div><label class="small muted">重複</label>' + select("schRepeat", [["once", "一次"], ["daily", "每日"], ["weekly", "每週"]], state.schRepeat) + (state.schRepeat === "weekly" ? '<div class="row">' + WEEKDAYS.map((label, index) => '<label class="small"><input type="checkbox" data-action="weekday" data-id="' + (index + 1) + '"' + (state.schWeekdays.has(index + 1) ? " checked" : "") + "> 週" + label + "</label>").join("") + "</div>" : "") + '<label class="small muted">目標</label>' + select("schTarget", [["selected", "已剔選屏幕（" + state.selected.size + "）"], ["zone", "整個店群"], ["all", "全部屏幕（200）"]], state.schTarget) + (state.schTarget === "zone" ? select("schZone", ZONES.map((zone) => [zone.id, zone.name + "（" + zone.count + " 台）"]), state.schZone) : "") + (state.schTarget === "selected" && state.selected.size === 0 ? '<button class="btn secondary" type="button" data-action="view" data-id="screens">前往屏幕總覽剔選</button>' : "") + '<label class="small muted">到時顯示的圖片</label>' + select("schImage", images().map((image) => [image.id, image.name]), state.schImage) + (draft ? '<p class="small">將覆蓋 ' + draftIds.length + " 台。</p>" : "") + (conflicts.length ? '<div class="callout warn"><b>同一時間已有排程</b><p class="small">「' + esc(conflicts.map((schedule) => schedule.name).join("、")) + '」與這次目標重疊。建立後，執行時以這次排程為準。</p></div>' : "") + (block ? '<p class="small faint">' + esc(block) + "</p>" : "") + '<button class="btn primary" type="button" data-action="create-schedule"' + (block ? " disabled" : "") + ">建立排程</button></div></section>";
     }
 
     app.addEventListener("click", (event) => {
