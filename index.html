@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>電子屏幕控制後台線框</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f5f3;
+      --surface: #fff;
+      --ink: #1c1b19;
+      --muted: #5e5a54;
+      --faint: #8a847c;
+      --line: #e4e0d8;
+      --line-strong: #c9c3b8;
+      --fill: #f1eee8;
+      --accent: #1d4e89;
+      --accent-ink: #fff;
+      --warn: #8a4b12;
+      --warn-bg: #f8efe4;
+      --ok: #1f6b45;
+      --ok-bg: #e7f3ec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 "Segoe UI", "PingFang HK", "Microsoft JhengHei", sans-serif;
+    }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+    h1 { font-size: 24px; line-height: 1.25; margin: 0; font-weight: 650; }
+    h2 { font-size: 18px; margin: 0 0 8px; font-weight: 650; }
+    h3 { font-size: 15px; margin: 0; font-weight: 650; }
+    p { margin: 0; }
+    .muted { color: var(--muted); }
+    .faint { color: var(--faint); }
+    .small { font-size: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .between { justify-content: space-between; }
+    .stack { display: flex; flex-direction: column; gap: 12px; }
+    .grow { flex: 1; min-width: 0; }
+    header.top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 8px; }
+    .nav button, .pill, .btn {
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      border-radius: 999px;
+      padding: 4px 10px;
+      line-height: 1.4;
+    }
+    .nav button.active, .pill.active, .btn.primary {
+      background: var(--ink);
+      color: var(--accent-ink);
+      border-color: var(--ink);
+    }
+    .btn.primary { border-radius: 6px; background: var(--accent); border-color: var(--accent); }
+    .btn.ghost, .btn.secondary { border-radius: 6px; background: transparent; }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .stats { display: flex; gap: 28px; flex-wrap: wrap; }
+    .stat b { display: block; font-size: 22px; font-weight: 650; }
+    .stat.ok b { color: var(--ok); }
+    .stat.warn b { color: var(--warn); }
+    .bar { display: flex; height: 10px; width: 100%; background: var(--fill); overflow: hidden; }
+    .bar span { display: block; height: 100%; }
+    .swatch { width: 8px; height: 8px; flex: none; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input[type="text"], input[type="search"], select {
+      border: 1px solid var(--line-strong);
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 6px 8px;
+      min-height: 32px;
+    }
+    .grid { display: grid; gap: 8px; }
+    .layout { display: grid; gap: 16px; align-items: start; }
+    .layout.with-side { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
+    .tile, .card, .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      min-width: 0;
+    }
+    .tile { padding: 8px; cursor: pointer; }
+    .tile.selected { background: var(--fill); }
+    .tile.focused { border-color: var(--accent); }
+    .thumb {
+      height: 58px;
+      background: var(--fill);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+    }
+    .thumb i { width: 4px; flex: none; }
+    .thumb b { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 6px; font-size: 12px; font-weight: 650; text-align: center; }
+    .card { padding: 0; }
+    .card h3, .panel h3 { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; display: flex; justify-content: space-between; }
+    .card .body, .panel .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .picker { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .picker button { text-align: left; border: 1px solid var(--line); background: transparent; padding: 6px; display: flex; gap: 6px; align-items: center; }
+    .picker button.on { border-color: var(--accent); background: var(--fill); }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: 13px; }
+    th { font-size: 12px; color: var(--muted); font-weight: 650; }
+    .callout { border: 1px solid var(--line-strong); padding: 10px 12px; background: var(--surface); }
+    .callout.ok { background: var(--ok-bg); border-color: #b7d8c6; }
+    .callout.warn { background: var(--warn-bg); border-color: #ead3b8; }
+    .tag { font-size: 11px; border: 1px solid var(--line-strong); border-radius: 999px; padding: 1px 6px; }
+    .tag.on { background: var(--ink); color: white; border-color: var(--ink); }
+    .split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr); gap: 20px; align-items: start; }
+    .lib { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 16px; align-items: start; }
+    .note { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 16px; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 860px) {
+      .layout.with-side, .split, .lib { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"></div>
+  <script>
+    const TODAY = "2026-11-25";
+    const NOW_MINUTES = 12 * 60 + 18;
+    const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
+    const ZONES = [
+      { id: "ses", name: "三星專門店", count: 30, branches: ["尖沙咀海港城", "旺角 MOKO", "中環華人行", "沙田新城市廣場", "啟德 AIRSIDE", "太古", "九龍灣德福廣場", "荃灣千色匯", "將軍澳 PopCorn", "元朗形點"] },
+      { id: "fortress", name: "豐澤", count: 30, branches: ["中環萬邦行", "銅鑼灣時代廣場", "圓方", "旺角好望角", "荃灣廣場"] },
+      { id: "broadway", name: "百老匯", count: 32, branches: ["太古城中心", "銅鑼灣恒隆中心地庫", "銅鑼灣恒隆中心地下", "銅鑼灣時代廣場", "觀塘 apm", "九龍灣德福廣場", "鑽石山荷里活廣場", "旺角豉油街", "旺角西洋菜南街", "尖沙咀海港城", "上水新都廣場", "將軍澳東港城", "沙田新城市廣場", "荃灣眾安街", "屯門市廣場", "元朗教育路"] },
+      { id: "wilson", name: "衛訊", count: 34, branches: ["荃灣大鴻輝中心", "銅鑼灣怡和街", "旺角百寶利商業中心", "旺角始創中心", "九龍灣德福廣場", "觀塘創紀之城五期", "荃灣南豐中心", "葵芳新都會廣場", "元朗形點 II", "元朗鈞德樓", "上水新都廣場", "上水廣場", "屯門 V city", "屯門市廣場", "大埔超級城", "沙田新城市廣場", "將軍澳 PopCorn"] },
+      { id: "chungyuen", name: "中原電器", count: 30, branches: ["銅鑼灣時代廣場", "旺角新世紀廣場", "九龍灣德福廣場", "深水埗 V Walk", "將軍澳新都城", "荃灣廣場"] },
+      { id: "telecom", name: "電訊數碼", count: 24, branches: ["旺角百寶利商業中心", "銅鑼灣怡和街", "觀塘 apm", "九龍灣德福廣場", "沙田廣場", "將軍澳東港城", "太子始創中心", "鑽石山荷里活廣場"] },
+      { id: "carrier", name: "1010／csl", count: 20, branches: ["1010 銅鑼灣時代廣場", "1010 旺角朗豪坊", "1010 沙田新城市廣場", "1010 中環", "1010 觀塘 apm", "csl 銅鑼灣", "csl 旺角", "csl 沙田新城市廣場", "csl 荃灣", "csl 將軍澳"] }
+    ];
+    const BASE_IMAGES = [
+      { id: "img-spring", name: "春季主視覺", color: "#2E79B5" },
+      { id: "img-sale", name: "會員日促銷", color: "#C06028" },
+      { id: "img-dining", name: "家電組合", color: "#1F8A65" },
+      { id: "img-wayfind", name: "Galaxy 新品", color: "#2A9A8A" },
+      { id: "img-event", name: "週末活動", color: "#7B64B8" },
+      { id: "img-wear", name: "穿戴裝置", color: "#6b7280" },
+      { id: "img-night", name: "夜間品牌", color: "#C85898" },
+      { id: "img-hold", name: "待機畫面", color: "#C9A227" }
+    ];
+    const EXTRA_COLORS = ["#C04848", "#C9A227", "#C06028", "#7B64B8"];
+    const OFFLINE = new Set([8, 17, 31, 53, 62, 90, 106, 124, 155, 186, 190]);
+
+    function imageForZone(zoneId, index) {
+      if (zoneId === "ses") return index % 5 === 0 ? "img-wayfind" : "img-spring";
+      if (zoneId === "fortress") return index % 4 === 0 ? "img-event" : "img-sale";
+      if (zoneId === "broadway") return index % 3 === 0 ? "img-event" : "img-sale";
+      if (zoneId === "wilson") return index % 2 === 0 ? "img-wayfind" : "img-spring";
+      if (zoneId === "chungyuen") return index % 4 === 0 ? "img-night" : "img-dining";
+      if (zoneId === "telecom") return index % 5 === 0 ? "img-wear" : "img-event";
+      return "img-spring";
+    }
+
+    const SCREENS = [];
+    {
+      let n = 1;
+      for (const zone of ZONES) {
+        const perBranch = zone.count / zone.branches.length;
+        for (let i = 1; i <= zone.count; i += 1) {
+          SCREENS.push({
+            id: "SCR-" + String(n).padStart(3, "0"),
+            n,
+            zoneId: zone.id,
+            location: zone.branches[Math.floor((i - 1) / perBranch)],
+            imageId: imageForZone(zone.id, i),
+            online: !OFFLINE.has(n),
+            updated: n % 5 === 0 ? "昨天 18:40" : n % 3 === 0 ? "今天 08:05" : "今天 09:12"
+          });
+          n += 1;
+        }
+      }
+    }
+    const SCREEN_BY_ID = new Map(SCREENS.map((screen) => [screen.id, screen]));
+
+    const state = {
+      view: "screens",
+      layout: "grid",
+      query: "",
+      zone: "all",
+      status: "all",
+      imageFilter: "all",
+      page: 0,
+      selected: new Set(),
+      focusId: "SCR-001",
+      batchOpen: false,
+      overrides: {},
+      dirty: new Set(),
+      schedules: [
+        { id: "sch-fortress", name: "豐澤會員日換畫", date: TODAY, time: "15:00", repeat: "once", weekdays: [], imageId: "img-sale", target: { kind: "zone", zoneId: "fortress" }, enabled: true },
+        { id: "sch-flagship", name: "旗艦專門店換週末活動", date: TODAY, time: "16:00", repeat: "once", weekdays: [], imageId: "img-event", target: { kind: "screens", ids: ["SCR-001", "SCR-004", "SCR-007"] }, enabled: true },
+        { id: "sch-night", name: "專門店轉夜間品牌", date: TODAY, time: "18:00", repeat: "once", weekdays: [], imageId: "img-night", target: { kind: "zone", zoneId: "ses" }, enabled: true },
+        { id: "sch-morning", name: "專門店早場主視覺", date: "2026-11-26", time: "07:30", repeat: "daily", weekdays: [], imageId: "img-spring", target: { kind: "zone", zoneId: "ses" }, enabled: true },
+        { id: "sch-wilson", name: "衛訊週五新品", date: "2026-11-27", time: "11:00", repeat: "weekly", weekdays: [5], imageId: "img-wayfind", target: { kind: "zone", zoneId: "wilson" }, enabled: true },
+        { id: "sch-broadway", name: "百老匯會員日促銷", date: "2026-11-28", time: "10:00", repeat: "once", weekdays: [], imageId: "img-sale", target: { kind: "zone", zoneId: "broadway" }, enabled: true }
+      ],
+      activeScheduleId: "sch-fortress",
+      notice: "",
+      extraImages: [],
+      libraryId: "img-spring",
+      newImageName: "聖誕主視覺",
+      detailImage: "img-spring",
+      batchImage: "img-sale",
+      schName: "",
+      schDate: "2026-11-26",
+      schTime: "08:00",
+      schRepeat: "once",
+      schWeekdays: new Set([5]),
+      schTarget: "selected",
+      schZone: "ses",
+      schImage: "img-spring"
+    };
+
+    const app = document.getElementById("app");
+
+    function images() { return BASE_IMAGES.concat(state.extraImages); }
+    function findImage(id) { return images().find((image) => image.id === id); }
+    function zoneName(id) { return (ZONES.find((zone) => zone.id === id) || {}).name || id; }
+    function assigned(screen) { return state.overrides[screen.id] || screen.imageId; }
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    }
+    function addDays(iso, days) {
+      const [year, month, day] = iso.split("-").map(Number);
+      const date = new Date(year, month - 1, day + days);
+      return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0");
+    }
+    function weekdayISO(iso) {
+      const [year, month, day] = iso.split("-").map(Number);
+      const js = new Date(year, month - 1, day).getDay();
+      return js === 0 ? 7 : js;
+    }
+    function parseMinutes(time) {
+      const match = /^(\d{2}):(\d{2})$/.exec(time);
+      if (!match) return null;
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (hour > 23 || minute > 59) return null;
+      return hour * 60 + minute;
+    }
+    function validDate(iso) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+      const [year, month, day] = iso.split("-").map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+    }
+    function formatWhen(iso, time) {
+      if (iso === TODAY) return "今日 " + time;
+      if (iso === addDays(TODAY, 1)) return "明日 " + time;
+      return iso.slice(5).replace("-", "/") + " " + time;
+    }
+    function targetIds(target) {
+      if (target.kind === "zone") return SCREENS.filter((screen) => screen.zoneId === target.zoneId).map((screen) => screen.id);
+      return target.ids;
+    }
+    function targetLabel(target) {
+      if (target.kind === "zone") {
+        const zone = ZONES.find((item) => item.id === target.zoneId);
+        return zone ? zone.name + "（" + zone.count + " 台）" : target.zoneId;
+      }
+      const onlineIds = SCREENS.filter((screen) => screen.online);
+      if (target.ids.length === onlineIds.length && target.ids.every((id) => SCREEN_BY_ID.get(id).online)) return "全部在線（" + target.ids.length + " 台）";
+      if (target.ids.length <= 3) return target.ids.join("、");
+      return target.ids.length + " 台屏幕";
+    }
+    function nextOccurrence(schedule) {
+      if (!schedule.enabled) return null;
+      const minutes = parseMinutes(schedule.time);
+      if (minutes === null) return null;
+      if (schedule.repeat === "once") {
+        if (schedule.date > TODAY || (schedule.date === TODAY && minutes > NOW_MINUTES)) return { iso: schedule.date, time: schedule.time };
+        return null;
+      }
+      if (schedule.repeat === "daily") {
+        if (minutes > NOW_MINUTES) return { iso: TODAY, time: schedule.time };
+        return { iso: addDays(TODAY, 1), time: schedule.time };
+      }
+      for (let offset = 0; offset < 8; offset += 1) {
+        const iso = addDays(TODAY, offset);
+        if (!schedule.weekdays.includes(weekdayISO(iso))) continue;
+        if (offset === 0 && minutes <= NOW_MINUTES) continue;
+        return { iso, time: schedule.time };
+      }
+      return null;
+    }
+    function upcomingFor(screenId) {
+      const hits = [];
+      for (const schedule of state.schedules) {
+        const when = nextOccurrence(schedule);
+        if (!when) continue;
+        if (!targetIds(schedule.target).includes(screenId)) continue;
+        hits.push({ schedule, when });
+      }
+      hits.sort((a, b) => (a.when.iso + a.when.time).localeCompare(b.when.iso + b.when.time));
+      return hits;
+    }
+    function repeatLabel(schedule) {
+      if (schedule.repeat === "once") return "一次";
+      if (schedule.repeat === "daily") return "每日";
+      return "每週" + schedule.weekdays.slice().sort((a, b) => a - b).map((day) => WEEKDAYS[day - 1]).join("");
+    }
+    function clockOverlaps(existing, date, time, repeat, weekdays) {
+      if (!existing.enabled || existing.time !== time) return false;
+      if (existing.repeat === "daily" || repeat === "daily") return true;
+      if (existing.repeat === "once" && repeat === "once") return existing.date === date;
+      if (existing.repeat === "once" && repeat === "weekly") return weekdays.includes(weekdayISO(existing.date));
+      if (existing.repeat === "weekly" && repeat === "once") return existing.weekdays.includes(weekdayISO(date));
+      if (existing.repeat === "weekly" && repeat === "weekly") return existing.weekdays.some((day) => weekdays.includes(day));
+      return false;
+    }
+    function thumb(image, height) {
+      const item = image || { name: "未知圖片", color: "#6b7280" };
+      return '<div class="thumb" style="height:' + height + 'px"><i style="background:' + item.color + '"></i><b>' + esc(item.name) + "</b></div>";
+    }
+    function picker(value, field) {
+      return '<div class="picker">' + images().map((image) => (
+        '<button type="button" class="' + (image.id === value ? "on" : "") + '" data-action="pick" data-field="' + field + '" data-id="' + image.id + '"><i class="swatch" style="background:' + image.color + '"></i><span class="truncate">' + esc(image.name) + "</span></button>"
+      )).join("") + "</div>";
+    }
+
+    function filteredScreens() {
+      const q = state.query.trim().toLowerCase();
+      return SCREENS.filter((screen) => {
+        if (state.zone !== "all" && screen.zoneId !== state.zone) return false;
+        if (state.status === "online" && !screen.online) return false;
+        if (state.status === "offline" && screen.online) return false;
+        const imageId = assigned(screen);
+        if (state.imageFilter !== "all" && imageId !== state.imageFilter) return false;
+        if (state.status === "today") {
+          const next = upcomingFor(screen.id)[0];
+          if (!next || next.when.iso !== TODAY) return false;
+        }
+        if (!q) return true;
+        const image = findImage(imageId);
+        return [screen.id, screen.location, zoneName(screen.zoneId), image ? image.name : ""].join(" ").toLowerCase().includes(q);
+      });
+    }
+
+    function draftTarget() {
+      if (state.schTarget === "selected") {
+        if (state.selected.size === 0) return null;
+        return { kind: "screens", ids: Array.from(state.selected).sort() };
+      }
+      if (state.schTarget === "zone") return { kind: "zone", zoneId: state.schZone };
+      return { kind: "screens", ids: SCREENS.filter((screen) => screen.online).map((screen) => screen.id) };
+    }
+
+    function applyTo(ids, imageId) {
+      const image = findImage(imageId);
+      ids.forEach((id) => { state.overrides[id] = imageId; state.dirty.add(id); });
+      const offline = ids.filter((id) => !SCREEN_BY_ID.get(id).online).length;
+      state.notice = "已將 " + ids.length + " 台屏幕的指定圖片改為「" + (image ? image.name : imageId) + "」。" + (offline ? " 其中 " + offline + " 台離線，重新上線後先會同步。" : "");
+      state.batchOpen = false;
+    }
+
+    function render() {
+      const active = document.activeElement;
+      const field = active && active.dataset ? active.dataset.field : "";
+      const caret = active && typeof active.selectionStart === "number" ? active.selectionStart : null;
+      const onlineCount = SCREENS.filter((screen) => screen.online).length;
+      const todayCount = SCREENS.filter((screen) => {
+        const next = upcomingFor(screen.id)[0];
+        return next && next.when.iso === TODAY;
+      }).length;
+      const intro = {
+        screens: "200 台屏幕分佈在三星專門店及香港授權零售商分店。可以按店群篩選，再單獨或批量換圖。",
+        library: "所有可派到屏幕的圖片都在這裡。每台屏幕同一時間只用其中一張。",
+        schedules: "到指定時間，用選定圖片覆蓋目標屏幕當時的畫面。"
+      };
+      app.innerHTML = [
+        '<header class="top"><div><h1>電子屏幕控制後台</h1><p class="muted small">互動線框 · 200 台獨立屏幕 · 每台同時只顯示一張圖 · 示範時間 2026-11-25 12:18</p></div>',
+        '<div class="nav row">',
+        navButton("screens", "屏幕總覽"),
+        navButton("library", "圖片庫"),
+        navButton("schedules", "排程"),
+        "</div></header>",
+        '<p class="muted">' + intro[state.view] + "</p>",
+        state.notice ? '<div class="callout ok"><p>' + esc(state.notice) + '</p><button class="btn ghost" data-action="clear-notice" type="button">關閉</button></div>' : "",
+        state.view === "screens" ? renderScreens(onlineCount, todayCount) : "",
+        state.view === "library" ? renderLibrary() : "",
+        state.view === "schedules" ? renderSchedules(onlineCount) : "",
+        '<section class="note stack"><h2>線框說明</h2>',
+        "<p class=\"small\">總覽以店群同每頁 24 台瀏覽 200 台。位置是三星專門店分店，以及豐澤、百老匯、衛訊、中原電器、電訊數碼、1010／csl 分店。</p>",
+        "<p class=\"small\">剔選先至可以批量更換或批量排程。撳入一台先至單獨改圖。</p>",
+        "<p class=\"small\">在線屏幕的縮圖是目前顯示。離線屏幕顯示最新指定畫面，並標明裝置未確認。</p>",
+        "<p class=\"small\">排程目標可以是已剔選屏幕、整個店群，或建立當下全部在線屏幕。同一時間重疊時，以最後建立的排程為準。</p>",
+        "<p class=\"small faint\">示範數據，不會控制真實屏幕。</p></section>"
+      ].join("");
+      if (field) {
+        const next = app.querySelector('[data-field="' + field + '"]');
+        if (next) {
+          next.focus();
+          if (caret !== null && next.setSelectionRange) next.setSelectionRange(caret, caret);
+        }
+      }
+    }
+
+    function navButton(view, label) {
+      return '<button type="button" class="' + (state.view === view ? "active" : "") + '" data-action="view" data-id="' + view + '">' + label + "</button>";
+    }
+
+    function renderScreens(onlineCount, todayCount) {
+      const list = filteredScreens();
+      const pageSize = state.layout === "grid" ? 24 : 12;
+      const pageCount = Math.max(1, Math.ceil(list.length / pageSize));
+      const page = Math.min(state.page, pageCount - 1);
+      const slice = list.slice(page * pageSize, page * pageSize + pageSize);
+      const counts = images().map((image) => ({ image, value: SCREENS.filter((screen) => assigned(screen) === image.id).length })).filter((item) => item.value > 0);
+      const focused = state.focusId ? SCREEN_BY_ID.get(state.focusId) : null;
+      const showDetail = focused && !state.batchOpen;
+      const pageIds = slice.map((screen) => screen.id);
+      const allPage = pageIds.length > 0 && pageIds.every((id) => state.selected.has(id));
+      const allFiltered = list.length > 0 && list.every((screen) => state.selected.has(screen.id));
+      const selected = Array.from(state.selected);
+      const bar = counts.map((item) => '<span style="width:' + (item.value / 2) + "%;background:" + item.image.color + '"></span>').join("");
+      const legend = counts.map((item) => '<span class="row"><i class="swatch" style="background:' + item.image.color + '"></i><span class="small muted">' + esc(item.image.name) + " " + item.value + "</span></span>").join("");
+      return [
+        '<section class="stack">',
+        '<div class="stats"><div class="stat"><b>200</b><span class="small muted">屏幕總數</span></div>',
+        '<div class="stat ok"><b>' + onlineCount + '</b><span class="small muted">在線</span></div>',
+        '<div class="stat warn"><b>' + (200 - onlineCount) + '</b><span class="small muted">離線</span></div>',
+        '<div class="stat"><b>' + todayCount + '</b><span class="small muted">今日會換圖</span></div></div>',
+        '<div class="stack"><div class="row between"><span class="small">目前指定圖片分佈</span><span class="small muted">200 台</span></div><div class="bar">' + bar + "</div><div class=\"row\">" + legend + "</div></div>",
+        '<div class="row">' + '<button type="button" class="pill' + (state.zone === "all" ? " active" : "") + '" data-action="zone" data-id="all">全部 200</button>' + ZONES.map((zone) => '<button type="button" class="pill' + (state.zone === zone.id ? " active" : "") + '" data-action="zone" data-id="' + zone.id + '">' + esc(zone.name) + " " + zone.count + "</button>").join("") + "</div>",
+        '<div class="filters"><input data-field="query" type="search" placeholder="搜索 ID 或分店" value="' + esc(state.query) + '" style="width:200px">',
+        select("status", [["all", "全部狀態"], ["online", "在線"], ["offline", "離線"], ["today", "今日會換圖"]], state.status),
+        select("imageFilter", [["all", "全部圖片"]].concat(images().map((image) => [image.id, image.name])), state.imageFilter),
+        '<span class="grow"></span>',
+        '<button type="button" class="pill' + (state.layout === "grid" ? " active" : "") + '" data-action="layout" data-id="grid">網格</button>',
+        '<button type="button" class="pill' + (state.layout === "list" ? " active" : "") + '" data-action="layout" data-id="list">列表</button></div>',
+        '<div class="row"><span class="small"><b>' + (selected.length ? "已選 " + selected.length + " 台" : "未選擇屏幕") + '</b></span>',
+        '<button class="btn ghost" type="button" data-action="clear-selected"' + (selected.length ? "" : " disabled") + ">清除</button><span class=\"grow\"></span>",
+        '<button class="btn secondary" type="button" data-action="schedule-selected"' + (selected.length ? "" : " disabled") + ">新增排程</button>",
+        '<button class="btn primary" type="button" data-action="open-batch"' + (selected.length ? "" : " disabled") + ">更換圖片</button></div>",
+        state.batchOpen ? renderBatch(selected) : "",
+        list.length === 0 ? '<div class="stack"><p>沒有屏幕符合目前篩選。</p><button class="btn secondary" type="button" data-action="reset-filters">清除篩選</button></div>' : [
+          pageBar(page, pageCount, list.length, allPage, allFiltered),
+          '<div class="layout' + (showDetail ? " with-side" : "") + '">',
+          state.layout === "grid" ? '<div class="grid" style="grid-template-columns:repeat(' + (showDetail ? 3 : 4) + ',minmax(0,1fr))">' + slice.map((screen) => tile(screen)).join("") + "</div>" : table(slice),
+          showDetail ? detail(focused) : "",
+          "</div>",
+          pageBar(page, pageCount, list.length, allPage, allFiltered)
+        ].join(""),
+        "</section>"
+      ].join("");
+    }
+
+    function select(field, options, value) {
+      return '<select data-field="' + field + '">' + options.map((option) => '<option value="' + esc(option[0]) + '"' + (option[0] === value ? " selected" : "") + ">" + esc(option[1]) + "</option>").join("") + "</select>";
+    }
+
+    function pageBar(page, pageCount, total, allPage, allFiltered) {
+      const start = total === 0 ? 0 : page * (state.layout === "grid" ? 24 : 12) + 1;
+      const end = Math.min(total, (page + 1) * (state.layout === "grid" ? 24 : 12));
+      return '<div class="row"><button class="btn ghost" type="button" data-action="page" data-id="-1"' + (page === 0 ? " disabled" : "") + ">上一頁</button><span class=\"small muted\">" + start + "–" + end + " / " + total + "</span><button class=\"btn ghost\" type=\"button\" data-action=\"page\" data-id=\"1\"" + (page >= pageCount - 1 ? " disabled" : "") + ">下一頁</button><button class=\"btn ghost\" type=\"button\" data-action=\"select-page\">" + (allPage ? "取消本頁" : "全選本頁") + "</button><button class=\"btn ghost\" type=\"button\" data-action=\"select-filtered\">" + (allFiltered ? "取消符合篩選" : "全選符合篩選（" + total + "）") + "</button></div>";
+    }
+
+    function tile(screen) {
+      const image = findImage(assigned(screen));
+      const next = upcomingFor(screen.id)[0];
+      const nextText = next ? formatWhen(next.when.iso, next.when.time) + " " + ((findImage(next.schedule.imageId) || {}).name || "") : "沒有即將更新";
+      return '<div class="tile' + (state.selected.has(screen.id) ? " selected" : "") + (state.focusId === screen.id ? " focused" : "") + '" data-action="open" data-id="' + screen.id + '"><div class="row between"><label data-action="toggle" data-id="' + screen.id + '"><input type="checkbox"' + (state.selected.has(screen.id) ? " checked" : "") + "></label><b class=\"small grow\">" + screen.id + "</b>" + (screen.online ? '<span class="faint small">在線</span>' : '<span class="tag">離線</span>') + "</div>" + thumb(image, 58) + '<p class="small truncate">' + esc(screen.location) + '</p><p class="small faint truncate">' + esc(zoneName(screen.zoneId)) + (state.dirty.has(screen.id) ? " · 剛剛更新" : " · " + screen.updated) + '</p><p class="small muted truncate">' + esc(nextText) + "</p></div>";
+    }
+
+    function table(slice) {
+      const rows = slice.map((screen) => {
+        const image = findImage(assigned(screen));
+        const next = upcomingFor(screen.id)[0];
+        const nextText = next ? formatWhen(next.when.iso, next.when.time) + " " + ((findImage(next.schedule.imageId) || {}).name || "") : "無";
+        return "<tr><td><label data-action=\"toggle\" data-id=\"" + screen.id + "\"><input type=\"checkbox\"" + (state.selected.has(screen.id) ? " checked" : "") + "></label></td><td><b>" + screen.id + "</b></td><td>" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</td><td>" + esc(image ? image.name : "未知圖片") + "</td><td>" + (screen.online ? "在線" : "離線 · 未確認") + "</td><td>" + esc(nextText) + "</td><td><button class=\"btn ghost\" type=\"button\" data-action=\"open\" data-id=\"" + screen.id + "\">開啟</button></td></tr>";
+      }).join("");
+      return "<table><thead><tr><th>選</th><th>屏幕</th><th>位置</th><th>指定圖片</th><th>狀態</th><th>下次更新</th><th></th></tr></thead><tbody>" + rows + "</tbody></table>";
+    }
+
+    function renderBatch(selected) {
+      const offline = selected.some((id) => !SCREEN_BY_ID.get(id).online);
+      return '<div class="card"><h3>批量更換圖片 <span class="tag">' + selected.length + " 台</span></h3><div class=\"body\"><p class=\"small muted\">" + esc(selected.slice(0, 8).join("、") + (selected.length > 8 ? "，以及其他 " + (selected.length - 8) + " 台" : "")) + "</p>" + picker(state.batchImage, "batchImage") + (offline ? '<div class="callout warn"><b>包含離線屏幕</b><p class="small">指定會先寫入後台。離線屏幕重新上線後，先顯示這張新圖。</p></div>' : "") + '<div class="row"><button class="btn primary" type="button" data-action="apply-batch">即時套用</button><button class="btn ghost" type="button" data-action="close-batch">取消</button></div></div></div>';
+    }
+
+    function detail(screen) {
+      const image = findImage(assigned(screen));
+      const hits = upcomingFor(screen.id);
+      return '<aside class="card"><h3>' + screen.id + ' <span class="tag' + (screen.online ? " on" : "") + '">' + (screen.online ? "在線" : "離線") + "</span></h3><div class=\"body\"><p class=\"small muted\">" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</p>" + thumb(image, 96) + "<p class=\"small\">" + (screen.online ? "目前顯示" : "指定畫面（裝置離線，未確認實際畫面）") + "：" + esc(image.name) + "</p><p class=\"small faint\">" + (state.dirty.has(screen.id) ? "剛剛由後台更新" : "最後指令 " + screen.updated) + "</p>" + (screen.online ? "" : '<div class="callout warn"><b>屏幕離線</b><p class="small">仍可更改指定圖片或加入排程。屏幕重新上線後會同步最新指令。</p></div>') + "<h3>更換這台的圖片</h3>" + picker(state.detailImage, "detailImage") + (state.detailImage === assigned(screen) ? '<p class="small faint">此屏幕已經指定這張圖。</p>' : '<button class="btn primary" type="button" data-action="apply-one">即時套用到此屏幕</button>') + '<button class="btn secondary" type="button" data-action="schedule-one">只排程此屏幕</button><h3>即將執行</h3>' + (hits.length ? hits.map((hit) => '<p class="small">' + esc(formatWhen(hit.when.iso, hit.when.time) + " · " + hit.schedule.name + " · " + ((findImage(hit.schedule.imageId) || {}).name || "")) + "</p>").join("") : '<p class="small muted">這台未有即將執行的排程。</p>') + '<button class="btn ghost" type="button" data-action="close-detail">關閉</button></div></aside>';
+    }
+
+    function renderLibrary() {
+      const selected = findImage(state.libraryId) || images()[0];
+      const users = SCREENS.filter((screen) => assigned(screen) === selected.id);
+      const cards = images().map((image) => {
+        const count = SCREENS.filter((screen) => assigned(screen) === image.id).length;
+        return '<div class="tile' + (image.id === selected.id ? " focused" : "") + '" data-action="library" data-id="' + image.id + '">' + thumb(image, 72) + '<p class="small"><b>' + esc(image.name) + '</b></p><p class="small faint">1920×1080 · ' + count + " 台</p></div>";
+      }).join("");
+      const rows = users.slice(0, 8).map((screen) => "<tr><td>" + screen.id + "</td><td>" + esc(zoneName(screen.zoneId) + " · " + screen.location) + "</td><td>" + (screen.online ? "在線" : "離線") + "</td></tr>").join("");
+      return '<section class="stack"><div class="lib"><div class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">' + cards + '</div><aside class="card"><h3>' + esc(selected.name) + ' <span class="tag">' + users.length + ' 台</span></h3><div class="body"><p class="small muted">1920×1080 · 16:9 · 靜態 JPG / PNG</p><p class="small">每台屏幕只會顯示圖片庫中的一張。套用新圖會覆蓋該台原來的指定。</p>' + (users.length ? '<h3>使用中的屏幕</h3><table><thead><tr><th>屏幕</th><th>位置</th><th>狀態</th></tr></thead><tbody>' + rows + "</tbody></table>" + (users.length > 8 ? '<p class="small faint">另有 ' + (users.length - 8) + ' 台未列出。</p>' : "") + '<button class="btn secondary" type="button" data-action="show-users" data-id="' + selected.id + '">在總覽查看這 ' + users.length + " 台</button>" : '<p class="small muted">未有屏幕使用此圖。可在屏幕總覽剔選後套用。</p>') + '</div></aside></div><div class="stack"><h2>加入圖片</h2><p class="small muted">上傳在正式系統完成。此線框用一個已選檔案示範入庫後可以立即被排程同批量套用。</p><div class="row"><input data-field="newImageName" type="text" value="' + esc(state.newImageName) + '" placeholder="圖片名稱"><span class="small faint">示意檔案 christmas-hero.jpg · 1920×1080 · 1.8 MB</span></div><button class="btn primary" type="button" data-action="add-image"' + (state.newImageName.trim() ? "" : " disabled") + ">加入圖片庫</button></div></section>";
+    }
+
+    function renderSchedules(onlineCount) {
+      const rows = state.schedules.map((schedule) => {
+        const next = nextOccurrence(schedule);
+        const statusText = !schedule.enabled ? "已停用" : !next ? "已過期" : next.iso === TODAY ? "今日待執行" : "待執行";
+        const when = next ? formatWhen(next.iso, next.time) : schedule.date.slice(5).replace("-", "/") + " " + schedule.time;
+        return "<tr><td>" + esc(when) + "</td><td><button class=\"btn ghost\" type=\"button\" data-action=\"schedule-detail\" data-id=\"" + schedule.id + "\">" + esc(schedule.name) + "</button></td><td>" + esc(targetLabel(schedule.target)) + "</td><td>" + esc((findImage(schedule.imageId) || {}).name || "未知圖片") + "</td><td>" + esc(repeatLabel(schedule)) + "</td><td>" + statusText + "</td><td><input type=\"checkbox\" data-action=\"toggle-schedule\" data-id=\"" + schedule.id + "\"" + (schedule.enabled ? " checked" : "") + "></td></tr>";
+      }).join("");
+      const active = state.schedules.find((schedule) => schedule.id === state.activeScheduleId) || state.schedules[0];
+      const draft = draftTarget();
+      const draftIds = draft ? targetIds(draft) : [];
+      const draftOffline = draftIds.filter((id) => !SCREEN_BY_ID.get(id).online).length;
+      const timeOk = parseMinutes(state.schTime) !== null && validDate(state.schDate);
+      const weekdays = Array.from(state.schWeekdays);
+      const weekdayOk = state.schRepeat !== "weekly" || weekdays.length > 0;
+      const conflicts = state.schedules.filter((schedule) => draft && timeOk && weekdayOk && clockOverlaps(schedule, state.schDate, state.schTime, state.schRepeat, weekdays) && targetIds(schedule.target).some((id) => draftIds.includes(id)));
+      let block = "";
+      if (!state.schName.trim()) block = "請填排程名稱。";
+      else if (!timeOk) block = "日期用 YYYY-MM-DD，時間用 HH:MM。";
+      else if (!weekdayOk) block = "每週排程請至少選擇一日。";
+      else if (!draft) block = "請先在屏幕總覽剔選屏幕，或改目標為整個店群。";
+      const byZone = active ? ZONES.map((zone) => {
+        const count = targetIds(active.target).filter((id) => SCREEN_BY_ID.get(id).zoneId === zone.id).length;
+        return count ? zone.name + " " + count : "";
+      }).filter(Boolean) : [];
+      const activeNext = active ? nextOccurrence(active) : null;
+      return '<section class="split"><div class="stack"><h2>排程清單</h2><p class="small muted">啟用中的排程會在時間到達時覆蓋目標屏幕的指定圖片。停用後不再執行。</p><table><thead><tr><th>時間</th><th>排程</th><th>目標</th><th>圖片</th><th>重複</th><th>狀態</th><th>啟用</th></tr></thead><tbody>' + rows + "</tbody></table>" + (active ? '<div class="stack"><h3>' + esc(active.name) + "</h3><p class=\"small\">" + esc((activeNext ? formatWhen(activeNext.iso, activeNext.time) : "已無後續執行") + " · " + repeatLabel(active) + " · 改為「" + ((findImage(active.imageId) || {}).name || "") + "」") + "</p><p class=\"small muted\">目標 " + esc(targetLabel(active.target)) + " · 店群分佈 " + esc(byZone.join("、")) + "</p></div>" : "") + '</div><div class="stack"><h2>新增排程</h2><label class="small muted">排程名稱</label><input data-field="schName" type="text" value="' + esc(state.schName) + '" placeholder="例如：尖沙咀專門店換畫"><div class="row"><label class="stack grow"><span class="small muted">日期</span><input data-field="schDate" type="text" value="' + esc(state.schDate) + '"></label><label class="stack grow"><span class="small muted">時間</span><input data-field="schTime" type="text" value="' + esc(state.schTime) + '"></label></div><label class="small muted">重複</label>' + select("schRepeat", [["once", "一次"], ["daily", "每日"], ["weekly", "每週"]], state.schRepeat) + (state.schRepeat === "weekly" ? '<div class="row">' + WEEKDAYS.map((label, index) => '<label class="small"><input type="checkbox" data-action="weekday" data-id="' + (index + 1) + '"' + (state.schWeekdays.has(index + 1) ? " checked" : "") + "> 週" + label + "</label>").join("") + "</div>" : "") + '<label class="small muted">目標</label>' + select("schTarget", [["selected", "已剔選屏幕（" + state.selected.size + "）"], ["zone", "整個店群"], ["online", "全部在線（" + onlineCount + "）"]], state.schTarget) + (state.schTarget === "zone" ? select("schZone", ZONES.map((zone) => [zone.id, zone.name + "（" + zone.count + " 台）"]), state.schZone) : "") + (state.schTarget === "selected" && state.selected.size === 0 ? '<button class="btn secondary" type="button" data-action="view" data-id="screens">前往屏幕總覽剔選</button>' : "") + '<label class="small muted">到時顯示的圖片</label>' + select("schImage", images().map((image) => [image.id, image.name]), state.schImage) + (draft ? '<p class="small">將覆蓋 ' + draftIds.length + " 台。" + (draftOffline ? " 其中 " + draftOffline + " 台目前離線，上線後同步。" : "") + "</p>" : "") + (conflicts.length ? '<div class="callout warn"><b>同一時間已有排程</b><p class="small">「' + esc(conflicts.map((schedule) => schedule.name).join("、")) + '」與這次目標重疊。建立後，執行時以這次排程為準。</p></div>' : "") + (block ? '<p class="small faint">' + esc(block) + "</p>" : "") + '<button class="btn primary" type="button" data-action="create-schedule"' + (block ? " disabled" : "") + ">建立排程</button></div></section>";
+    }
+
+    app.addEventListener("click", (event) => {
+      const el = event.target.closest("[data-action]");
+      if (!el) return;
+      const action = el.dataset.action;
+      const id = el.dataset.id;
+      if (action === "toggle") event.stopPropagation();
+      if (action === "view") { state.view = id; if (id !== "screens") state.batchOpen = false; }
+      else if (action === "zone") { state.zone = id; state.page = 0; }
+      else if (action === "layout") state.layout = id;
+      else if (action === "page") state.page = Math.max(0, state.page + Number(id));
+      else if (action === "clear-notice") state.notice = "";
+      else if (action === "clear-selected") state.selected.clear();
+      else if (action === "open-batch") state.batchOpen = true;
+      else if (action === "close-batch") state.batchOpen = false;
+      else if (action === "close-detail") state.focusId = null;
+      else if (action === "reset-filters") { state.query = ""; state.zone = "all"; state.status = "all"; state.imageFilter = "all"; state.page = 0; }
+      else if (action === "open") { state.focusId = id; state.detailImage = assigned(SCREEN_BY_ID.get(id)); state.batchOpen = false; }
+      else if (action === "toggle") { if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id); }
+      else if (action === "select-page" || action === "select-filtered") toggleVisible(action === "select-page");
+      else if (action === "apply-batch") applyTo(Array.from(state.selected), state.batchImage);
+      else if (action === "apply-one" && state.focusId) applyTo([state.focusId], state.detailImage);
+      else if (action === "schedule-selected") openSchedule(Array.from(state.selected));
+      else if (action === "schedule-one" && state.focusId) openSchedule([state.focusId]);
+      else if (action === "pick") state[el.dataset.field] = id;
+      else if (action === "library") state.libraryId = id;
+      else if (action === "show-users") { state.imageFilter = id; state.zone = "all"; state.status = "all"; state.query = ""; state.page = 0; state.view = "screens"; }
+      else if (action === "add-image") addImage();
+      else if (action === "schedule-detail") state.activeScheduleId = id;
+      else if (action === "toggle-schedule") {
+        const schedule = state.schedules.find((item) => item.id === id);
+        if (schedule) schedule.enabled = !schedule.enabled;
+      } else if (action === "weekday") {
+        const day = Number(id);
+        if (state.schWeekdays.has(day)) state.schWeekdays.delete(day); else state.schWeekdays.add(day);
+      } else if (action === "create-schedule") createSchedule();
+      else return;
+      render();
+    });
+
+    app.addEventListener("input", (event) => {
+      const field = event.target.dataset.field;
+      if (!field) return;
+      state[field] = event.target.value;
+      if (field === "query" || field === "status" || field === "imageFilter" || field === "zone") state.page = 0;
+      render();
+    });
+    app.addEventListener("change", (event) => {
+      const field = event.target.dataset.field;
+      if (!field || event.target.dataset.action) return;
+      state[field] = event.target.value;
+      if (field === "status" || field === "imageFilter") state.page = 0;
+      render();
+    });
+
+    function currentSlice(pageOnly) {
+      const list = filteredScreens();
+      const pageSize = state.layout === "grid" ? 24 : 12;
+      const page = Math.min(state.page, Math.max(0, Math.ceil(list.length / pageSize) - 1));
+      return pageOnly ? list.slice(page * pageSize, page * pageSize + pageSize) : list;
+    }
+    function toggleVisible(pageOnly) {
+      const ids = currentSlice(pageOnly).map((screen) => screen.id);
+      const all = ids.every((id) => state.selected.has(id));
+      ids.forEach((id) => { if (all) state.selected.delete(id); else state.selected.add(id); });
+    }
+    function openSchedule(ids) {
+      state.selected = new Set(ids);
+      state.schTarget = "selected";
+      state.batchOpen = false;
+      state.view = "schedules";
+    }
+    function addImage() {
+      const name = state.newImageName.trim();
+      if (!name) return;
+      const image = { id: "img-custom-" + (state.extraImages.length + 1), name, color: EXTRA_COLORS[state.extraImages.length % EXTRA_COLORS.length] };
+      state.extraImages.push(image);
+      state.libraryId = image.id;
+      state.newImageName = "";
+      state.notice = "已將「" + name + "」加入圖片庫。可以再到屏幕總覽套用到屏幕。";
+    }
+    function createSchedule() {
+      const draft = draftTarget();
+      if (!draft || !state.schName.trim()) return;
+      const id = "sch-" + (state.schedules.length + 1);
+      const schedule = {
+        id,
+        name: state.schName.trim(),
+        date: state.schDate,
+        time: state.schTime,
+        repeat: state.schRepeat,
+        weekdays: state.schRepeat === "weekly" ? Array.from(state.schWeekdays).sort((a, b) => a - b) : [],
+        imageId: state.schImage,
+        target: draft,
+        enabled: true
+      };
+      state.schedules.unshift(schedule);
+      state.activeScheduleId = id;
+      state.schName = "";
+      const image = findImage(state.schImage);
+      state.notice = "已建立排程「" + schedule.name + "」，" + formatWhen(schedule.date, schedule.time) + " 將 " + targetIds(draft).length + " 台屏幕改為「" + (image ? image.name : "") + "」。";
+    }
+
+    render();
+  </script>
+</body>
+</html>
